@@ -7,7 +7,7 @@ pub struct DeBruijn(pub u32);
 /// Each object embeds a free variables cache.
 /// The purpose of a free variables cache is to quickly answer the question:
 /// “does a particular variable appear free in the object?”
-/// Variables with a De Bruijn index less than 8 can be stored in the cache.
+/// Variables with a De Bruijn index less than 16 can be stored in the cache.
 /// Attempts to insert variables with higher De Bruijn indices
 /// causes the set to enter an “unknown” state,
 /// from which it can no longer answer the question.
@@ -15,20 +15,20 @@ pub struct DeBruijn(pub u32);
 /// Unless the cache is in the “unknown” state,
 /// it _must_ accurately reflect the object.
 /// There must not be false positives or false negatives.
-/// This also holds for variables with De Bruijn indices larger than 7.
+/// This also holds for variables with De Bruijn indices larger than 15.
 /// Without this invariant, the simplifier would produce incorrect results.
 ///
 /// The free variables cache being in the “unknown” state
 /// may not be taken as proof that it contains variables
-/// with De Bruijn indices larger than 7.
+/// with De Bruijn indices larger than 15.
 /// This allows the simplifier to skip computing the free variables cache
 /// when it is not needed or when it is too expensive to compute it
 /// (it can simply use [`UNKNOWN`](`FreeCache::UNKNOWN`) directly).
 #[derive(Clone, Copy)]
 pub struct FreeCache
 {
-    /// The “unknown” state is represented by 0xFF.
-    bits: u8,
+    /// The “unknown” state is represented by 0xFFFF.
+    bits: u16,
 }
 
 impl FreeCache
@@ -42,12 +42,12 @@ impl FreeCache
     /// Insert a variable into the free variables cache.
     ///
     /// If the variable is already in the set, the set is returned unchanged.
-    /// If the variable has a De Bruijn index larger than 7,
+    /// If the variable has a De Bruijn index larger than 15,
     /// the free variables cache in the “unknown” state is returned.
     #[must_use = "insert returns a new free variables cache"]
     pub fn insert(self, de_bruijn: DeBruijn) -> Self
     {
-        if de_bruijn.0 >= 8 {
+        if de_bruijn.0 >= 16 {
             Self::UNKNOWN
         } else {
             Self{bits: self.bits | 1 << de_bruijn.0}
@@ -64,7 +64,7 @@ impl FreeCache
     {
         if self.bits == Self::UNKNOWN.bits {
             None
-        } else if de_bruijn.0 >= 8 {
+        } else if de_bruijn.0 >= 16 {
             Some(false)
         } else {
             Some(self.bits & 1 << de_bruijn.0 != 0)
@@ -84,7 +84,7 @@ mod tests
     proptest!
     {
         #[test]
-        fn free_cache_answers_true(de_bruijn in 0u32 .. 7)
+        fn free_cache_answers_true(de_bruijn in 0u32 .. 15)
         {
             let de_bruijn = DeBruijn(de_bruijn);
             let cache = FreeCache::EMPTY.insert(de_bruijn);
@@ -92,7 +92,7 @@ mod tests
         }
 
         #[test]
-        fn free_cache_answers_false(insert in 0u32 .. 7, check: u32)
+        fn free_cache_answers_false(insert in 0u32 .. 15, check: u32)
         {
             prop_assume!(insert != check);
             let insert = DeBruijn(insert);
@@ -109,7 +109,7 @@ mod tests
         }
 
         #[test]
-        fn free_cache_becomes_unknown(de_bruijn in 8u32 ..)
+        fn free_cache_becomes_unknown(de_bruijn in 16u32 ..)
         {
             let de_bruijn = DeBruijn(de_bruijn);
             let cache = FreeCache::EMPTY.insert(de_bruijn);
