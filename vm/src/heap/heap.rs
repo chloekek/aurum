@@ -38,18 +38,9 @@ pub struct Heap<'h>
     /// as scope creation and destruction.
     scopes: RefCell<Vec<*const [Cell<UnsafeHandle<'h>>]>>,
 
-    /// Interned Null object.
-    ///
-    /// This handle is used to initialize new scopes;
-    /// every scope starts out with all Null handles.
-    pub interned_null: UnsafeHandle<'h>,
-
-    /// Interned variable objects with small De Bruijn indices.
-    ///
-    /// The [`alloc_variable`][`Heap::alloc_variable`]
-    /// and [`new_variable`][`Heap::new_variable`]
-    /// methods automatically consult this array.
-    pub interned_variables: [UnsafeHandle<'h>; INTERNED_VARIABLE_COUNT],
+    /// See the corresponding methods for more information.
+    interned_null: Cell<UnsafeHandle<'h>>,
+    interned_variables: Cell<[UnsafeHandle<'h>; INTERNED_VARIABLE_COUNT]>,
 }
 
 impl<'h> Heap<'h>
@@ -66,32 +57,59 @@ impl<'h> Heap<'h>
         where F: for<'fresh_h> FnOnce(&Heap<'fresh_h>) -> R
     {
         // Create the heap.
-        let mut this = Heap{
+        let this = Heap{
 
             heap_id: PhantomData,
             scopes: RefCell::new(Vec::new()),
 
             // These will be initialized below.
-            interned_null: UnsafeHandle::dangling(),
-            interned_variables: [UnsafeHandle::dangling(); 16],
+            interned_null: Cell::new(UnsafeHandle::dangling()),
+            interned_variables: Cell::new([UnsafeHandle::dangling(); 16]),
 
         };
 
-        // TODO: Make sure no GC takes place until
-        //       interned fields have been initialized
+        this.with_new_array_scope(|[scoped]| {
 
-        // Initialize the interned null object.
-        this.interned_null = this.alloc_symbol(b"Null").unwrap();
+            // TODO: Make sure no GC takes place until
+            //       interned fields have been initialized
 
-        // Initialize the interned variable objects.
-        for i in 0 .. INTERNED_VARIABLE_COUNT {
-            let de_bruijn = object::DeBruijn(i as u32);
-            let object = this.alloc_variable_not_interned(de_bruijn);
-            this.interned_variables[i] = object.into_ok();
-        }
+            // Initialize the interned null object.
+            this.new_symbol(scoped, b"Null").unwrap();
+            this.interned_null.set(scoped.as_unsafe_handle());
+
+            // Initialize the interned variable objects.
+            for i in 0 .. INTERNED_VARIABLE_COUNT {
+                let de_bruijn = object::DeBruijn(i as u32);
+                this.new_variable_not_interned(scoped, de_bruijn);
+                this.interned_variables.as_array_of_cells()[i]
+                    .set(scoped.as_unsafe_handle());
+            }
+
+        });
 
         // Call the continuation.
         then(&this)
+    }
+
+    /// Interned Null object.
+    ///
+    /// This handle is used to initialize new scopes;
+    /// every scope starts out with all Null handles.
+    pub fn interned_null(&self) -> UnsafeHandle<'h>
+    {
+        self.interned_null.get()
+    }
+
+    /// Interned variable objects with small De Bruijn indices.
+    ///
+    /// The [`new_variable`][`Heap::new_variable`]
+    /// method automatically consults this array.
+    pub fn interned_variable(&self, de_bruijn: object::DeBruijn)
+        -> Option<UnsafeHandle<'h>>
+    {
+        self.interned_variables.as_array_of_cells()
+            .get(de_bruijn.0 as usize)
+            .map(Cell::get)
     }
 
     /// Allocate memory for an object and initialize it.
@@ -102,8 +120,7 @@ impl<'h> Heap<'h>
     /// and then the `init` function is called.
     ///
     /// You would not normally use this method.
-    /// Instead use one of the `alloc_*` methods,
-    /// or better yet, one of the `new_*` methods.
+    /// Instead use one of the `new_*` methods.
     /// They will initialize the object for you
     /// and are therefore much safer to use.
     ///
@@ -157,6 +174,24 @@ impl<'h> Heap<'h>
         UnsafeHandle::new(pointer)
     }
 
+    /// Similar to [`alloc`][`Self::alloc`],
+    /// but point the given scoped handle to the new object.
+    pub unsafe fn new<'s>(
+        &self,
+        into: ScopedHandle<'h, 's>,
+        kind: object::Kind,
+        payload_size: usize,
+        init: impl FnOnce(
+            &mut object::FreeCache,
+            &mut [MaybeUninit<u8>; 4],
+            *mut object::Payload,
+        ),
+    )
+    {
+        let object = self.alloc(kind, payload_size, init);
+        into.copy_from_unsafe_handle(object);
+    }
+
     /// Shared implementation of `with_new_*_scope` methods.
     ///
     /// This method controls the lifetime of the [`Scope`] object,
@@ -185,7 +220,7 @@ impl<'h> Heap<'h>
     pub fn with_new_array_scope<F, R, const N: usize>(&self, then: F) -> R
         where F: for<'s> FnOnce([ScopedHandle<'h, 's>; N]) -> R
     {
-        let scope = Cell::new([self.interned_null; N]);
+        let scope = Cell::new([self.interned_null(); N]);
         let scope = scope.as_array_of_cells();
 
         self.with_scope(scope, |scope| {
@@ -214,7 +249,7 @@ impl<'h> Heap<'h>
     pub fn with_new_boxed_scope<F, R>(&self, size: usize, then: F) -> R
         where F: FnOnce(&Scope<'h>) -> R
     {
-        let scope = vec![Cell::new(self.interned_null); size];
+        let scope = vec![Cell::new(self.interned_null()); size];
         self.with_scope(&scope, then)
     }
 }

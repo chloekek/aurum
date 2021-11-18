@@ -1,4 +1,5 @@
-use crate::heap::UnsafeHandle;
+use crate::heap::Heap;
+use crate::heap::ScopedHandle;
 use super::Kind;
 
 use core::mem::MaybeUninit;
@@ -8,22 +9,19 @@ use core::slice;
 #[derive(Debug)]
 pub struct SymbolLenError;
 
-alloc_methods!
+/// Methods for creating symbol objects.
+impl<'h> Heap<'h>
 {
-    //! symbols
-
     /// Create a symbol with the given name.
-    #[scoped_alias = new_symbol]
-    pub fn alloc_symbol(&self, name: &[u8])
-        -> Result<UnsafeHandle<'h>, SymbolLenError>
+    pub fn new_symbol<'s>(&self, into: ScopedHandle<'h, 's>, name: &[u8])
+        -> Result<(), SymbolLenError>
     {
         const ERR: SymbolLenError = SymbolLenError;
-
         let payload_size = name.len();
         let name_len: u32 = name.len().try_into().map_err(|_| ERR)?;
-
-        let handle = unsafe {
-            self.alloc(
+        unsafe {
+            self.new(
+                into,
                 Kind::Symbol,
                 payload_size,
                 |_free_cache, extra, payload| {
@@ -44,9 +42,8 @@ alloc_methods!
                     );
 
                 },
-            )
-        };
-
-        Ok(handle)
+            );
+        }
+        Ok(())
     }
 }

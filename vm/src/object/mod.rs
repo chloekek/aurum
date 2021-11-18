@@ -1,7 +1,5 @@
 //! In-memory representation of objects.
 
-#[macro_use] mod macros;
-
 pub use self::de_bruijn::*;
 pub use self::symbol::*;
 pub use self::variable::*;

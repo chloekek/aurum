@@ -21,10 +21,10 @@ mod tests
 
                 heap.new_symbol(scope[0], b"Add").unwrap();
                 heap.new_symbol(scope[1], b"Pi").unwrap();
-                heap.new_variable(scope[2], DeBruijn(0)).unwrap();
+                heap.new_variable(scope[2], DeBruijn(0));
 
                 let function = scope[0];
-                let arguments = [scope[1], scope[2]].into_iter();
+                let arguments = [scope[1], scope[2]];
                 heap.new_application(scope[3], function, arguments).unwrap();
 
             });

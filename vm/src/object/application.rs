@@ -1,3 +1,4 @@
+use crate::heap::Heap;
 use crate::heap::ScopedHandle;
 use crate::heap::UnsafeHandle;
 use super::Kind;
@@ -23,21 +24,23 @@ fn payload_size(num_arguments: usize) -> Result<u32, NumArgumentsError>
     num_fields.checked_mul(PTR_SIZE).ok_or(ERR)
 }
 
-alloc_methods!
+/// Methods for creating application objects.
+impl<'h> Heap<'h>
 {
-    //! applications
-
     /// Create an application with the given function and arguments.
-    #[scoped_alias = new_application]
-    pub fn alloc_application<'s>(
+    pub fn new_application<'s, I>(
         &self,
+        into: ScopedHandle<'h, 's>,
         function: ScopedHandle<'h, 's>,
-        arguments: impl ExactSizeIterator<Item=ScopedHandle<'h, 's>> + TrustedLen,
-    ) -> Result<UnsafeHandle<'h>, NumArgumentsError>
+        arguments: impl IntoIterator<IntoIter=I>,
+    ) -> Result<(), NumArgumentsError>
+        where I: ExactSizeIterator<Item=ScopedHandle<'h, 's>> + TrustedLen
     {
+        let arguments = arguments.into_iter();
         let payload_size = payload_size(arguments.len())?;
-        let handle = unsafe {
-            self.alloc(
+        unsafe {
+            self.new(
+                into,
                 Kind::Application,
                 payload_size as usize,
                 |free_cache, extra, payload| {
@@ -58,8 +61,8 @@ alloc_methods!
                     }
 
                 },
-            )
-        };
-        Ok(handle)
+            );
+        }
+        Ok(())
     }
 }
