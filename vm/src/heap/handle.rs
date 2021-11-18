@@ -49,6 +49,7 @@ impl<'h> UnsafeHandle<'h>
 /// which is especially important with large objects such as arrays.
 ///
 /// [`PINNED`]: `crate::object::Flags::PINNED`
+#[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct PinnedHandle<'h, 'p>
 {
