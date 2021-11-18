@@ -217,6 +217,23 @@ impl<'h> Heap<'h>
     /// Since the number of handles is known statically (by `N`),
     /// this function will create all the scoped handles for you,
     /// so you don’t need to [`Scope::get`] them yourself.
+    ///
+    /// # Examples
+    ///
+    /// You can use destructuring syntax to obtain the handles:
+    ///
+    /// ```
+    /// # use aurum_vm::heap::Heap;
+    /// # use aurum_vm::object::DeBruijn;
+    /// # Heap::with_new(|heap| {
+    /// heap.with_new_array_scope(|[add, pi, x, app]| {
+    ///     heap.new_symbol(add, b"Add").unwrap();
+    ///     heap.new_symbol(pi, b"Pi").unwrap();
+    ///     heap.new_variable(x, DeBruijn(0));
+    ///     heap.new_application(app, add, [pi, x]).unwrap();
+    /// });
+    /// # });
+    /// ```
     pub fn with_new_array_scope<F, R, const N: usize>(&self, then: F) -> R
         where F: for<'s> FnOnce([ScopedHandle<'h, 's>; N]) -> R
     {
