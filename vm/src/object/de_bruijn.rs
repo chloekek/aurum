@@ -1,3 +1,5 @@
+use core::ops;
+
 /// A De Bruijn index references a variable.
 #[derive(Clone, Copy)]
 pub struct DeBruijn(pub u32);
@@ -69,6 +71,26 @@ impl FreeCache
         } else {
             Some(self.bits & 1 << de_bruijn.0 != 0)
         }
+    }
+}
+
+/// The union of two free variables caches.
+impl ops::BitOr for FreeCache
+{
+    type Output = FreeCache;
+
+    fn bitor(self, rhs: FreeCache) -> Self::Output
+    {
+        Self{bits: self.bits | rhs.bits}
+    }
+}
+
+/// The union of two free variables caches.
+impl ops::BitOrAssign for FreeCache
+{
+    fn bitor_assign(&mut self, rhs: FreeCache)
+    {
+        *self = *self | rhs;
     }
 }
 

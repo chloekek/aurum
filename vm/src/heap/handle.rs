@@ -1,3 +1,4 @@
+use crate::object::FreeCache;
 use crate::object::Object;
 
 use core::cell::Cell;
@@ -38,6 +39,12 @@ impl<'h> UnsafeHandle<'h>
     pub fn as_ptr(self) -> NonNull<UnsafeCell<Object<'h>>>
     {
         self.pointer
+    }
+
+    /// More conveniently access the handle as a pointer.
+    pub fn as_object_ptr(self) -> *const Object<'h>
+    {
+        UnsafeCell::raw_get(self.as_ptr().as_ptr())
     }
 }
 
@@ -111,5 +118,14 @@ impl<'h, 's> ScopedHandle<'h, 's>
     pub unsafe fn copy_from_unsafe_handle(self, other: UnsafeHandle<'h>)
     {
         self.handle.set(other);
+    }
+
+    /// Get the free variables cache of the referenced object.
+    pub fn free_cache(self) -> FreeCache
+    {
+        unsafe {
+            let object = self.as_unsafe_handle().as_object_ptr();
+            (*object).header.free_cache
+        }
     }
 }

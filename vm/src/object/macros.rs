@@ -9,7 +9,7 @@ macro_rules! alloc_methods
         $(
             $(#[doc = $doc:expr])*
             #[scoped_alias = $new_name:ident]
-            pub fn $alloc_name:ident(
+            pub fn $alloc_name:ident$(<$lifetime:lifetime>)?(
                 &$self_name:ident
                 $(, $param_name:ident: $param_type:ty)*
                 $(,)?
@@ -24,14 +24,18 @@ macro_rules! alloc_methods
         {
             $(
                 $(#[doc = $doc])*
-                pub fn $alloc_name(&$self_name, $($param_name: $param_type),*)
-                    -> Result<UnsafeHandle<'h>, $error_type>
+                pub fn $alloc_name$(<$lifetime>)?(
+                    &$self_name,
+                    $($param_name: $param_type),*
+                ) -> Result<UnsafeHandle<'h>, $error_type>
                 $body
 
                 $(#[doc = $doc])*
-                pub fn $new_name<'s>(
+                #[doc = ""]
+                #[doc = "The given handle is set to point to the new object."]
+                pub fn $new_name<'__s $(, $lifetime)?>(
                     &$self_name,
-                    into: $crate::heap::ScopedHandle<'h, 's>,
+                    into: $crate::heap::ScopedHandle<'h, '__s>,
                     $($param_name: $param_type),*
                 ) -> Result<(), $error_type>
                 {

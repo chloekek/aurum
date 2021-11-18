@@ -11,6 +11,7 @@ use crate::heap::HeapId;
 use bitflags::bitflags;
 use core::mem::MaybeUninit;
 
+mod application;
 mod de_bruijn;
 mod symbol;
 mod variable;
@@ -42,6 +43,7 @@ pub enum Kind
 {
     Symbol,
     Variable,
+    Application,
 }
 
 bitflags!

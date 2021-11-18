@@ -1,27 +1,8 @@
 use crate::heap::UnsafeHandle;
 use super::DeBruijn;
-use super::FreeCache;
 use super::Kind;
 
 use core::mem::MaybeUninit;
-
-/// Variable objects always have one free variable: themselves.
-fn free_cache(de_bruijn: DeBruijn) -> FreeCache
-{
-    FreeCache::EMPTY.insert(de_bruijn)
-}
-
-/// The De Bruijn index is stored in the extra field.
-fn extra(de_bruijn: DeBruijn) -> [MaybeUninit<u8>; 4]
-{
-    let mut result = MaybeUninit::uninit_array();
-    MaybeUninit::write_slice(&mut result, &de_bruijn.0.to_ne_bytes());
-    result
-}
-
-/// Variables store all their information in the extra field,
-/// so they have a payload size of zero.
-const PAYLOAD_SIZE: usize = 0;
 
 alloc_methods!
 {
@@ -47,15 +28,29 @@ alloc_methods!
     pub fn alloc_variable_not_interned(&self, de_bruijn: DeBruijn)
         -> Result<UnsafeHandle<'h>, !>
     {
+        // There is no payload for variables.
+        // All information is stored in the header.
+        const PAYLOAD_SIZE: usize = 0;
+
         let handle = unsafe {
             self.alloc(
                 Kind::Variable,
-                free_cache(de_bruijn),
-                extra(de_bruijn),
                 PAYLOAD_SIZE,
-                |_payload| { },
+                |free_cache, extra, _payload| {
+
+                    // The free cache stores just this variable.
+                    *free_cache = free_cache.insert(de_bruijn);
+
+                    // The De Bruijn index is stored in the extra field.
+                    MaybeUninit::write_slice(extra, &de_bruijn.0.to_ne_bytes());
+
+                    // The payload remains empty.
+                    { }
+
+                },
             )
         };
+
         Ok(handle)
     }
 }

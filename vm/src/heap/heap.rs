@@ -98,8 +98,8 @@ impl<'h> Heap<'h>
     ///
     /// Memory is allocated on the garbage collected heap
     /// for an object of the given payload size.
-    /// The header of the object is initialized
-    /// and then the `init_payload` function is called.
+    /// The kind field of the object is initialized
+    /// and then the `init` function is called.
     ///
     /// You would not normally use this method.
     /// Instead use one of the `alloc_*` methods,
@@ -112,7 +112,7 @@ impl<'h> Heap<'h>
     /// The payload size must not be too large so as to
     /// overflow a [usize] when the object header size is added.
     ///
-    /// Several conditions must hold regarding the `init_payload` function:
+    /// Several conditions must hold regarding the `init` function:
     ///
     ///  - It must not call this method, even indirectly.
     ///  - It must not panic (but may abort the process).
@@ -122,15 +122,19 @@ impl<'h> Heap<'h>
     pub unsafe fn alloc(
         &self,
         kind:         object::Kind,
-        free_cache:   object::FreeCache,
-        extra:        [MaybeUninit<u8>; 4],
         payload_size: usize,
-        init_payload: impl FnOnce(*mut object::Payload),
+        init: impl FnOnce(
+            &mut object::FreeCache,
+            &mut [MaybeUninit<u8>; 4],
+            *mut object::Payload,
+        ),
     ) -> UnsafeHandle<'h>
     {
         // TODO: Replace this with a pointer bump allocation.
 
         let flags = object::Flags::empty();
+        let free_cache = object::FreeCache::EMPTY;
+        let extra = MaybeUninit::uninit_array();
 
         let layout = Layout::from_size_align_unchecked(8 + payload_size, 8);
         let pointer = alloc(layout);
@@ -142,7 +146,11 @@ impl<'h> Heap<'h>
         let pointer = pointer as *mut object::Object<'h>;
 
         (*pointer).header = object::Header{kind, flags, free_cache, extra};
-        init_payload(&mut (*pointer).payload);
+        init(
+            &mut (*pointer).header.free_cache,
+            &mut (*pointer).header.extra,
+            &mut (*pointer).payload,
+        );
 
         let pointer = pointer as *mut UnsafeCell<object::Object<'h>>;
         let pointer = NonNull::new_unchecked(pointer);
