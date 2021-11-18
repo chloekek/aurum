@@ -170,12 +170,33 @@ impl<'h> Heap<'h>
     ///
     /// The scope is destroyed as soon as the given function returns or panics.
     /// For more information about scopes, see [`Scope`].
+    ///
+    /// Since the number of handles is known statically (by `N`),
+    /// this function will create all the scoped handles for you,
+    /// so you don’t need to [`Scope::get`] them yourself.
     pub fn with_new_array_scope<F, R, const N: usize>(&self, then: F) -> R
-        where F: FnOnce(&Scope<'h>) -> R
+        where F: for<'s> FnOnce([ScopedHandle<'h, 's>; N]) -> R
     {
         let scope = Cell::new([self.interned_null; N]);
         let scope = scope.as_array_of_cells();
-        self.with_scope(scope, then)
+
+        self.with_scope(scope, |scope| {
+
+            let mut scoped_handles = MaybeUninit::uninit_array::<N>();
+
+            for (i, s) in scoped_handles.iter_mut().enumerate() {
+                // SAFETY: We created a scope with N handle slots.
+                s.write(unsafe { scope.get_unchecked(i) });
+            }
+
+            // SAFETY: We initialized all N elements of the array.
+            let scoped_handles = unsafe {
+                MaybeUninit::array_assume_init(scoped_handles)
+            };
+
+            then(scoped_handles)
+
+        })
     }
 
     /// Create a new scope on the heap and pass it to the given function.
