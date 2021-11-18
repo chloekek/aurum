@@ -47,9 +47,22 @@ pub enum Kind
 
 bitflags!
 {
+    /// Various flags that an object may have.
     pub struct Flags: u8
     {
+        /// Used during a garbage collection cycle.
+        ///
+        /// Specifically, set on objects that are reachable from roots.
+        /// Does not persist outside of garbage collection cycles.
+        /// The alternative to storing this in the objects would be
+        /// to keep a set of pointers to objects during garbage collection.
+        /// However, such an approach would require _Ω(n)_ extra memory
+        /// where _n_ is the number of roots.
         const MARKED = 1 << 0;
+
+        /// As long as an object has this flag,
+        /// the garbage collector will not
+        /// destroy or relocate the object.
         const PINNED = 1 << 1;
     }
 }
