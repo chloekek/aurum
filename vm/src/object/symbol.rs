@@ -28,9 +28,9 @@ fn payload_size(name_len: u32) -> usize
 
 alloc_methods!
 {
-    #![doc = "symbols"]
+    //! symbols
 
-    #[doc = "Create a symbol with the given name."]
+    /// Create a symbol with the given name.
     #[scoped_alias = new_symbol]
     pub fn alloc_symbol(&self, name: &[u8])
         -> Result<UnsafeHandle<'h>, SymbolLenError>

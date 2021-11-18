@@ -25,12 +25,12 @@ const PAYLOAD_SIZE: usize = 0;
 
 alloc_methods!
 {
-    #![doc = "variables"]
+    //! variables
 
-    #[doc = "Create a variable with the given De Bruijn index."]
-    #[doc = ""]
-    #[doc = "If the De Bruijn index is sufficiently small,"]
-    #[doc = "an interned object is returned and no allocation takes place."]
+    /// Create a variable with the given De Bruijn index.
+    ///
+    /// If the De Bruijn index is sufficiently small,
+    /// an interned object is returned and no allocation takes place.
     #[scoped_alias = new_variable]
     pub fn alloc_variable(&self, de_bruijn: DeBruijn)
         -> Result<UnsafeHandle<'h>, !>
@@ -42,7 +42,7 @@ alloc_methods!
         }
     }
 
-    #[doc = "Create a variable with the given De Bruijn index."]
+    /// Create a variable with the given De Bruijn index.
     #[scoped_alias = new_variable_not_interned]
     pub fn alloc_variable_not_interned(&self, de_bruijn: DeBruijn)
         -> Result<UnsafeHandle<'h>, !>
