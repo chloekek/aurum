@@ -40,7 +40,6 @@ pub struct Header
 #[derive(Clone, Copy)]
 pub enum Kind
 {
-    Indirection,
     Symbol,
     Variable,
 }
