@@ -2,6 +2,7 @@ use crate::object::Object;
 
 use core::cell::Cell;
 use core::cell::UnsafeCell;
+use core::marker::PhantomData;
 use core::ptr::NonNull;
 
 /// Pointer to an object with no guarantees.
@@ -37,6 +38,30 @@ impl<'h> UnsafeHandle<'h>
     pub fn as_ptr(self) -> NonNull<UnsafeCell<Object<'h>>>
     {
         self.pointer
+    }
+}
+
+/// Pointer to an object whose [`PINNED`] flag is set.
+///
+/// The garbage collector will not destroy or relocate pinned objects.
+/// As a result, we can simply point to them as long as they are pinned.
+/// This lets you borrow cells of components of the object,
+/// which is especially important with large objects such as arrays.
+///
+/// [`PINNED`]: `crate::object::Flags::PINNED`
+#[derive(Clone, Copy)]
+pub struct PinnedHandle<'h, 'p>
+{
+    _pin_frame: PhantomData<&'p ()>,
+    handle: UnsafeHandle<'h>,
+}
+
+impl<'h, 'p> PinnedHandle<'h, 'p>
+{
+    /// Convert the pinned handle to the underlying handle.
+    pub fn as_unsafe_handle(self) -> UnsafeHandle<'h>
+    {
+        self.handle
     }
 }
 
