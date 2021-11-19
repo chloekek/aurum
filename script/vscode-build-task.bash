@@ -3,8 +3,10 @@
 set -o errexit
 set -o xtrace
 
-cargo build
-cargo build --release
-cargo test
-cargo test --release
+cargo build --profile dev
+cargo test --profile dev
+
+cargo build --profile release
+cargo test --profile release
+
 cargo doc

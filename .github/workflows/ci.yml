@@ -1,0 +1,44 @@
+"name": "CI"
+
+"on":
+
+  "push":
+
+    "branches":
+      - "trunk"
+
+    "pull_requests":
+      - "trunk"
+
+"jobs":
+
+  "build":
+
+    "runs-on": "ubuntu-latest"
+
+    "env":
+      "RUSTFLAGS": "--deny warnings"
+
+    "steps":
+
+      - "uses": "actions/checkout@v2.4.0"
+
+      - "uses": "cachix/install-nix-action@v15"
+
+      - "name": "Install Nix dependencies"
+        "run": "nix-shell --pure --run true"
+
+      - "name": "Build Rust packages (dev profile)"
+        "run": "nix-shell --pure --run 'cargo build --profile dev'"
+
+      - "name": "Test Rust packages (dev profile)"
+        "run": "nix-shell --pure --run 'cargo test --profile dev'"
+
+      - "name": "Build Rust packages (release profile)"
+        "run": "nix-shell --pure --run 'cargo build --profile release'"
+
+      - "name": "Test Rust packages (release profile)"
+        "run": "nix-shell --pure --run 'cargo test --profile release'"
+
+      - "name": "Build Rust docs"
+        "run": "nix-shell --pure --run 'cargo doc'"

@@ -18,8 +18,13 @@ mod variable;
 #[repr(C, align(8))]
 pub struct Object<'h>
 {
+    /// Identifies the heap that contains this object.
     pub heap_id: HeapId<'h>,
+
+    /// See [`Header`].
     pub header: Header,
+
+    /// See [`Payload`].
     pub payload: Payload,
 }
 
@@ -28,9 +33,19 @@ pub struct Object<'h>
 #[derive(Clone, Copy)]
 pub struct Header
 {
+    /// See [`Kind`].
     pub kind: Kind,
+
+    /// See [`Flags`].
     pub flags: Flags,
+
+    /// See [`FreeCache`].
     pub free_cache: FreeCache,
+
+    /// Since we have four bytes of space left in the header,
+    /// we’ll let objects use these as they please.
+    /// In fact, some objects store all their information in here,
+    /// and do not use the payload at all!
     pub extra: [MaybeUninit<u8>; 4],
 }
 
