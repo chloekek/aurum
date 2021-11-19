@@ -1,5 +1,5 @@
 [workspace]
 members = [
+    "aurum_vm",
     "unsafe_ref_cell",
-    "vm",
 ]
