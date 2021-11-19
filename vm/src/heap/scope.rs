@@ -17,8 +17,9 @@ impl<'h> Heap<'h>
     fn with_scope<F, R>(&self, scope: &[Cell<UnsafeHandle<'h>>], then: F) -> R
         where F: FnOnce(&Scope<'h>) -> R
     {
-        self.scopes.borrow_mut().push(scope);
-        defer! { self.scopes.borrow_mut().pop(); }
+        // SAFETY: We only borrow these for short periods of time.
+        unsafe { self.scopes.borrow_mut() }.push(scope);
+        defer! { unsafe { self.scopes.borrow_mut() }.pop(); }
 
         // SAFETY: The scope is registerd with the heap.
         // SAFETY: These types have the same representation.

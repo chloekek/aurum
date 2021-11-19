@@ -2,8 +2,8 @@ use super::UnsafeHandle;
 use crate::object::DeBruijn;
 
 use alloc::vec::Vec;
+use unsafe_ref_cell::UnsafeRefCell;
 use core::cell::Cell;
-use core::cell::RefCell;
 use core::marker::PhantomData;
 
 const INTERNED_VARIABLE_COUNT: usize = 16;
@@ -26,7 +26,7 @@ pub struct Heap<'h>
     /// It is important that the stack is managed *only* by `with_scope`,
     /// as the push and pop must happen in the same order
     /// as scope creation and destruction.
-    pub (super) scopes: RefCell<Vec<*const [Cell<UnsafeHandle<'h>>]>>,
+    pub (super) scopes: UnsafeRefCell<Vec<*const [Cell<UnsafeHandle<'h>>]>>,
 
     /// See the corresponding methods for more information.
     interned_null: Cell<UnsafeHandle<'h>>,
@@ -50,7 +50,7 @@ impl<'h> Heap<'h>
         let this = Heap{
 
             heap_id: PhantomData,
-            scopes: RefCell::new(Vec::new()),
+            scopes: UnsafeRefCell::new(Vec::new()),
 
             // These will be initialized below.
             interned_null: Cell::new(UnsafeHandle::dangling()),

@@ -9,6 +9,7 @@ dependencies = [
  "bitflags",
  "proptest",
  "scopeguard",
+ "unsafe_ref_cell",
 ]
 
 [[package]]
@@ -230,6 +231,10 @@ dependencies = [
  "remove_dir_all",
  "winapi",
 ]
+
+[[package]]
+name = "unsafe_ref_cell"
+version = "0.0.0"
 
 [[package]]
 name = "wait-timeout"
