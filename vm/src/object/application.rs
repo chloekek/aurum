@@ -1,6 +1,9 @@
 use crate::heap::Heap;
 use crate::heap::ScopedHandle;
 use crate::heap::UnsafeHandle;
+use super::Flags;
+use super::FreeCache;
+use super::Header;
 use super::Kind;
 
 use core::iter::TrustedLen;
@@ -38,31 +41,36 @@ impl<'h> Heap<'h>
     {
         let arguments = arguments.into_iter();
         let payload_size = payload_size(arguments.len())?;
+
         unsafe {
-            self.new(
-                into,
-                Kind::Application,
-                payload_size as usize,
-                |free_cache, extra, payload| {
+            self.new(into, payload_size as usize, |payload| {
 
-                    // The extra field stores the number of fields,
-                    // which is 1 (for the function) + the number of arguments.
-                    let num_fields = payload_size / PTR_SIZE;
-                    MaybeUninit::write_slice(extra, &num_fields.to_ne_bytes());
+                // The extra field stores the number of fields,
+                // which is 1 (for the function) + the number of arguments.
+                let num_fields = payload_size / PTR_SIZE;
+                let mut extra = MaybeUninit::uninit_array();
+                MaybeUninit::write_slice(&mut extra, &num_fields.to_ne_bytes());
 
-                    // The payload first stores the function,
-                    // then all the arguments in order.
-                    // Update the free cache while at it.
-                    let payload = payload as *mut UnsafeHandle;
-                    let fields = iter::once(function).chain(arguments);
-                    for (i, field) in fields.enumerate() {
-                        *free_cache |= field.free_cache();
-                        *payload.add(i) = field.as_unsafe_handle();
-                    }
+                // The payload first stores the function,
+                // then all the arguments in order.
+                let mut free_cache = FreeCache::EMPTY;
+                let payload = payload as *mut UnsafeHandle;
+                let fields = iter::once(function).chain(arguments);
+                for (i, field) in fields.enumerate() {
+                    free_cache |= field.free_cache();
+                    *payload.add(i) = field.as_unsafe_handle();
+                }
 
-                },
-            );
+                Header{
+                    kind: Kind::Application,
+                    flags: Flags::empty(),
+                    free_cache,
+                    extra,
+                }
+
+            });
         }
+
         Ok(())
     }
 }

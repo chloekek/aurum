@@ -1,19 +1,14 @@
-use crate::object;
+use crate::object::DeBruijn;
 use super::ScopedHandle;
 use super::UnsafeHandle;
 
-use alloc::alloc::alloc;
-use alloc::alloc::handle_alloc_error;
 use alloc::vec::Vec;
 use alloc::vec;
-use core::alloc::Layout;
 use core::cell::Cell;
 use core::cell::RefCell;
-use core::cell::UnsafeCell;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::mem::transmute;
-use core::ptr::NonNull;
 use scopeguard::defer;
 
 const INTERNED_VARIABLE_COUNT: usize = 16;
@@ -79,7 +74,7 @@ impl<'h> Heap<'h>
 
             // Initialize the interned variable objects.
             for i in 0 .. INTERNED_VARIABLE_COUNT {
-                let de_bruijn = object::DeBruijn(i as u32);
+                let de_bruijn = DeBruijn(i as u32);
                 this.new_variable_not_interned(scoped, de_bruijn);
                 this.interned_variables.as_array_of_cells()[i]
                     .set(scoped.as_unsafe_handle());
@@ -104,92 +99,12 @@ impl<'h> Heap<'h>
     ///
     /// The [`new_variable`][`Heap::new_variable`]
     /// method automatically consults this array.
-    pub fn interned_variable(&self, de_bruijn: object::DeBruijn)
+    pub fn interned_variable(&self, de_bruijn: DeBruijn)
         -> Option<UnsafeHandle<'h>>
     {
         self.interned_variables.as_array_of_cells()
             .get(de_bruijn.0 as usize)
             .map(Cell::get)
-    }
-
-    /// Allocate memory for an object and initialize it.
-    ///
-    /// Memory is allocated on the garbage collected heap
-    /// for an object of the given payload size.
-    /// The kind field of the object is initialized
-    /// and then the `init` function is called.
-    ///
-    /// You would not normally use this method.
-    /// Instead use one of the `new_*` methods.
-    /// They will initialize the object for you
-    /// and are therefore much safer to use.
-    ///
-    /// # Safety
-    ///
-    /// The payload size must not be too large so as to
-    /// overflow a [usize] when the object header size is added.
-    ///
-    /// Several conditions must hold regarding the `init` function:
-    ///
-    ///  - It must not call this method, even indirectly.
-    ///  - It must not panic (but may abort the process).
-    ///  - Once it returns, the object must be properly initialized
-    ///    (when the garbage collector kicks in later,
-    ///     it must not find an improperly initialized object).
-    pub unsafe fn alloc(
-        &self,
-        kind:         object::Kind,
-        payload_size: usize,
-        init: impl FnOnce(
-            &mut object::FreeCache,
-            &mut [MaybeUninit<u8>; 4],
-            *mut object::Payload,
-        ),
-    ) -> UnsafeHandle<'h>
-    {
-        // TODO: Replace this with a pointer bump allocation.
-
-        let flags = object::Flags::empty();
-        let free_cache = object::FreeCache::EMPTY;
-        let extra = MaybeUninit::uninit_array();
-
-        let layout = Layout::from_size_align_unchecked(8 + payload_size, 8);
-        let pointer = alloc(layout);
-
-        if pointer.is_null() {
-            handle_alloc_error(layout);
-        }
-
-        let pointer = pointer as *mut object::Object<'h>;
-
-        (*pointer).header = object::Header{kind, flags, free_cache, extra};
-        init(
-            &mut (*pointer).header.free_cache,
-            &mut (*pointer).header.extra,
-            &mut (*pointer).payload,
-        );
-
-        let pointer = pointer as *mut UnsafeCell<object::Object<'h>>;
-        let pointer = NonNull::new_unchecked(pointer);
-        UnsafeHandle::new(pointer)
-    }
-
-    /// Similar to [`alloc`][`Self::alloc`],
-    /// but point the given scoped handle to the new object.
-    pub unsafe fn new<'s>(
-        &self,
-        into: ScopedHandle<'h, 's>,
-        kind: object::Kind,
-        payload_size: usize,
-        init: impl FnOnce(
-            &mut object::FreeCache,
-            &mut [MaybeUninit<u8>; 4],
-            *mut object::Payload,
-        ),
-    )
-    {
-        let object = self.alloc(kind, payload_size, init);
-        into.copy_from_unsafe_handle(object);
     }
 
     /// Shared implementation of `with_new_*_scope` methods.

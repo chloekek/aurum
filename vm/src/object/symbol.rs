@@ -1,5 +1,8 @@
 use crate::heap::Heap;
 use crate::heap::ScopedHandle;
+use super::Flags;
+use super::FreeCache;
+use super::Header;
 use super::Kind;
 
 use core::mem::MaybeUninit;
@@ -19,31 +22,33 @@ impl<'h> Heap<'h>
         const ERR: SymbolLenError = SymbolLenError;
         let payload_size = name.len();
         let name_len: u32 = name.len().try_into().map_err(|_| ERR)?;
+
         unsafe {
-            self.new(
-                into,
-                Kind::Symbol,
-                payload_size,
-                |_free_cache, extra, payload| {
+            self.new(into, payload_size, |payload| {
 
-                    // The free cache remains empty.
-                    { }
+                // The extra field stores the length of the name.
+                let mut extra = MaybeUninit::uninit_array();
+                MaybeUninit::write_slice(&mut extra, &name_len.to_ne_bytes());
 
-                    // The extra field stores the length of the name.
-                    MaybeUninit::write_slice(extra, &name_len.to_ne_bytes());
+                // The payload stores the bytes of the name.
+                MaybeUninit::write_slice(
+                    slice::from_raw_parts_mut(
+                        payload as *mut MaybeUninit<u8>,
+                        name.len(),
+                    ),
+                    name
+                );
 
-                    // The payload stores the bytes of the name.
-                    MaybeUninit::write_slice(
-                        slice::from_raw_parts_mut(
-                            payload as *mut MaybeUninit<u8>,
-                            name.len(),
-                        ),
-                        name
-                    );
+                Header{
+                    kind: Kind::Symbol,
+                    flags: Flags::empty(),
+                    free_cache: FreeCache::EMPTY,
+                    extra,
+                }
 
-                },
-            );
+            });
         }
+
         Ok(())
     }
 }

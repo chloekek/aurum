@@ -1,9 +1,15 @@
 use crate::heap::Heap;
 use crate::heap::ScopedHandle;
 use super::DeBruijn;
+use super::Flags;
+use super::FreeCache;
+use super::Header;
 use super::Kind;
 
 use core::mem::MaybeUninit;
+
+// Variables store all info in the header.
+const PAYLOAD_SIZE: usize = 0;
 
 /// Methods for creating variable objects.
 impl<'h> Heap<'h>
@@ -32,27 +38,25 @@ impl<'h> Heap<'h>
         de_bruijn: DeBruijn,
     )
     {
-        // There is no payload for variables.
-        // All information is stored in the header.
-        const PAYLOAD_SIZE: usize = 0;
         unsafe {
-            self.new(
-                into,
-                Kind::Variable,
-                PAYLOAD_SIZE,
-                |free_cache, extra, _payload| {
+            self.new(into, PAYLOAD_SIZE, |_payload| {
 
-                    // The free cache stores just this variable.
-                    *free_cache = free_cache.insert(de_bruijn);
+                // The De Bruijn index is stored in the extra field.
+                let mut extra = MaybeUninit::uninit_array();
+                let extra_bytes = de_bruijn.0.to_ne_bytes();
+                MaybeUninit::write_slice(&mut extra, &extra_bytes);
 
-                    // The De Bruijn index is stored in the extra field.
-                    MaybeUninit::write_slice(extra, &de_bruijn.0.to_ne_bytes());
+                // The variable appears free in itself.
+                let free_cache = FreeCache::EMPTY.insert(de_bruijn);
 
-                    // The payload remains empty.
-                    { }
+                Header{
+                    kind: Kind::Variable,
+                    flags: Flags::empty(),
+                    free_cache,
+                    extra,
+                }
 
-                },
-            );
+            });
         }
     }
 }
