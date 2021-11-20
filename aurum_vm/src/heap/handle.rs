@@ -1,10 +1,12 @@
-use crate::object::FreeCache;
+use crate::object::Flags;
+use crate::object::Header;
 use crate::object::Object;
+use crate::object::Payload;
 
 use core::cell::Cell;
-use core::cell::UnsafeCell;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
+use scopeguard::defer;
 
 /// Pointer to an object with no guarantees.
 ///
@@ -16,7 +18,7 @@ use core::ptr::NonNull;
 #[derive(Clone, Copy)]
 pub struct UnsafeHandle<'h>
 {
-    pointer: NonNull<UnsafeCell<Object<'h>>>,
+    pointer: NonNull<Object<'h>>,
 }
 
 impl<'h> UnsafeHandle<'h>
@@ -25,26 +27,40 @@ impl<'h> UnsafeHandle<'h>
     pub fn dangling() -> Self
     {
         // Can’t use NonNull::dangling(), as Object is unsized.
-        let ptr = 8usize as *mut UnsafeCell<Object<'h>>;
+        let ptr = 8usize as *mut Object<'h>;
         unsafe { Self{pointer: NonNull::new_unchecked(ptr)} }
     }
 
     /// Create a handle from a pointer.
-    pub fn new(pointer: NonNull<UnsafeCell<Object<'h>>>) -> Self
+    pub fn new(pointer: NonNull<Object<'h>>) -> Self
     {
         Self{pointer}
     }
 
     /// Access the handle as a pointer.
-    pub fn as_ptr(self) -> NonNull<UnsafeCell<Object<'h>>>
+    pub fn as_ptr(self) -> *mut Object<'h>
     {
-        self.pointer
+        self.pointer.as_ptr()
     }
 
-    /// More conveniently access the handle as a pointer.
-    pub fn as_object_ptr(self) -> *const Object<'h>
+    /// Get the header of the object referenced by this handle.
+    ///
+    /// # Safety
+    ///
+    /// The handle must point to an object.
+    pub unsafe fn header(self) -> *mut Header
     {
-        UnsafeCell::raw_get(self.as_ptr().as_ptr())
+        &mut (*self.as_ptr()).header
+    }
+
+    /// Get the payload of the object referenced by this handle.
+    ///
+    /// # Safety
+    ///
+    /// The handle must point to an object.
+    pub unsafe fn payload(self) -> *mut Payload
+    {
+        &mut (*self.as_ptr()).payload
     }
 }
 
@@ -70,6 +86,20 @@ impl<'h, 'p> PinnedHandle<'h, 'p>
     pub fn as_unsafe_handle(self) -> UnsafeHandle<'h>
     {
         self.handle
+    }
+
+    /// Get the header of the object referenced by this handle.
+    pub fn header(self) -> Header
+    {
+        // SAFETY: The handle refers to an object, as it is pinned.
+        unsafe { *self.as_unsafe_handle().header() }
+    }
+
+    /// Get the payload of the object referenced by this handle.
+    pub fn payload(self) -> *mut Payload
+    {
+        // SAFETY: The handle refers to an object, as it is pinned.
+        unsafe { self.as_unsafe_handle().payload() }
     }
 }
 
@@ -120,12 +150,34 @@ impl<'h, 's> ScopedHandle<'h, 's>
         self.handle.set(other);
     }
 
-    /// Get the free variables cache of the referenced object.
-    pub fn free_cache(self) -> FreeCache
+    /// Obtain a pinned handle to the object referenced by this handle.
+    ///
+    /// If the object is not already pinned, it will be pinned.
+    /// If so, the object will also be unpinned once `then` returns.
+    pub fn with_pin<F, R>(self, then: F) -> R
+        where F: for<'p> FnOnce(PinnedHandle<'h, 'p>) -> R
     {
+        let pinned_handle = PinnedHandle{
+            _pin_frame: PhantomData,
+            handle: self.as_unsafe_handle(),
+        };
         unsafe {
-            let object = self.as_unsafe_handle().as_object_ptr();
-            (*object).header.free_cache
+            let header = self.as_unsafe_handle().header();
+            let flags: *mut Flags = &mut (*header).flags;
+            if (*flags).contains(Flags::PINNED) {
+                then(pinned_handle)
+            } else {
+                (*flags).insert(Flags::PINNED);
+                defer! { (*flags).remove(Flags::PINNED); }
+                then(pinned_handle)
+            }
         }
+    }
+
+    /// Get the header of the object referenced by this handle.
+    pub fn header(self) -> Header
+    {
+        // SAFETY: The handle refers to an object, as it is scoped.
+        unsafe { *self.as_unsafe_handle().header() }
     }
 }

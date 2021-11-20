@@ -8,7 +8,6 @@ use super::UnsafeHandle;
 use alloc::alloc::alloc;
 use alloc::alloc::handle_alloc_error;
 use core::alloc::Layout;
-use core::cell::UnsafeCell;
 use core::ptr::NonNull;
 
 impl<'h> Heap<'h>
@@ -57,9 +56,7 @@ impl<'h> Heap<'h>
 
         (*pointer).header = init(&mut (*pointer).payload);
 
-        let pointer = pointer as *mut UnsafeCell<Object<'h>>;
-        let pointer = NonNull::new_unchecked(pointer);
-        UnsafeHandle::new(pointer)
+        UnsafeHandle::new(NonNull::new_unchecked(pointer))
     }
 
     /// Similar to [`alloc`][`Self::alloc`],

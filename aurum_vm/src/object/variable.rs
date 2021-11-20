@@ -60,3 +60,46 @@ impl<'h> Heap<'h>
         }
     }
 }
+
+/// Methods for inspecting variable objects.
+impl<'h, 's> ScopedHandle<'h, 's>
+{
+    /// Get the De Bruijn index of the variable object.
+    ///
+    /// If the object is not a variable, this method returns [`None`].
+    pub fn as_variable(self) -> Option<DeBruijn>
+    {
+        let header = self.header();
+        match header.kind {
+            Kind::Variable => {
+                let extra = header.extra;
+                let extra = unsafe { MaybeUninit::array_assume_init(extra) };
+                Some(DeBruijn(u32::from_ne_bytes(extra)))
+            },
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    use proptest::proptest;
+
+    proptest!
+    {
+        #[test]
+        fn roundtrip(de_bruijn: u32)
+        {
+            let de_bruijn = DeBruijn(de_bruijn);
+            Heap::with_new(|heap| {
+                heap.with_new_array_scope(|[handle]| {
+                    heap.new_variable(handle, de_bruijn);
+                    assert_eq!(handle.as_variable(), Some(de_bruijn));
+                });
+            });
+        }
+    }
+}

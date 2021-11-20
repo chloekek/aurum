@@ -1,7 +1,7 @@
 use core::ops;
 
 /// A De Bruijn index references a variable.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DeBruijn(pub u32);
 
 /// Set of variables that are free in an object.

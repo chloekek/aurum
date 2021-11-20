@@ -57,7 +57,7 @@ impl<'h> Heap<'h>
                 let payload = payload as *mut UnsafeHandle;
                 let fields = iter::once(function).chain(arguments);
                 for (i, field) in fields.enumerate() {
-                    free_cache |= field.free_cache();
+                    free_cache |= field.header().free_cache;
                     *payload.add(i) = field.as_unsafe_handle();
                 }
 
