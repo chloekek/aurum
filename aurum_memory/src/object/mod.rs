@@ -1,5 +1,6 @@
 //! In-memory representation of objects.
 
+pub use self::application::*;
 pub use self::de_bruijn::*;
 pub use self::symbol::*;
 pub use self::variable::*;
