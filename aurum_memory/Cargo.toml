@@ -1,5 +1,5 @@
 [package]
-name = "aurum_vm"
+name = "aurum_memory"
 version = "0.0.0"
 edition = "2021"
 

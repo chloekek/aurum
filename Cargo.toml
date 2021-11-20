@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "aurum_vm",
+    "aurum_memory",
     "unsafe_ref_cell",
 ]

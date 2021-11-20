@@ -42,8 +42,8 @@ impl<'h> Heap<'h>
     /// You can use destructuring syntax to obtain the handles:
     ///
     /// ```
-    /// # use aurum_vm::heap::Heap;
-    /// # use aurum_vm::object::DeBruijn;
+    /// # use aurum_memory::heap::Heap;
+    /// # use aurum_memory::object::DeBruijn;
     /// # Heap::with_new(|heap| {
     /// heap.with_new_array_scope(|[add, pi, x, app]| {
     ///     heap.new_symbol(add, b"Add").unwrap();
