@@ -18,6 +18,7 @@ impl<'h> Heap<'h>
     ///
     /// If the De Bruijn index is sufficiently small,
     /// an interned object is returned and no allocation takes place.
+    #[inline]
     pub fn new_variable<'s>(
         &self,
         into: ScopedHandle<'h, 's>,
@@ -32,6 +33,7 @@ impl<'h> Heap<'h>
     }
 
     /// Create a variable with the given De Bruijn index.
+    #[inline]
     pub fn new_variable_not_interned<'s>(
         &self,
         into: ScopedHandle<'h, 's>,
@@ -67,6 +69,7 @@ impl<'h, 's> ScopedHandle<'h, 's>
     /// Get the De Bruijn index of the variable object.
     ///
     /// If the object is not a variable, this method returns [`None`].
+    #[inline]
     pub fn as_variable(self) -> Option<DeBruijn>
     {
         let header = self.header();

@@ -24,6 +24,7 @@ pub struct UnsafeHandle<'h>
 impl<'h> UnsafeHandle<'h>
 {
     /// Create a dangling handle.
+    #[inline]
     pub fn dangling() -> Self
     {
         // Can’t use NonNull::dangling(), as Object is unsized.
@@ -32,12 +33,14 @@ impl<'h> UnsafeHandle<'h>
     }
 
     /// Create a handle from a pointer.
+    #[inline]
     pub fn new(pointer: NonNull<Object<'h>>) -> Self
     {
         Self{pointer}
     }
 
     /// Access the handle as a pointer.
+    #[inline]
     pub fn as_ptr(self) -> *mut Object<'h>
     {
         self.pointer.as_ptr()
@@ -48,6 +51,7 @@ impl<'h> UnsafeHandle<'h>
     /// # Safety
     ///
     /// The handle must point to an object.
+    #[inline]
     pub unsafe fn header(self) -> *mut Header
     {
         &mut (*self.as_ptr()).header
@@ -58,6 +62,7 @@ impl<'h> UnsafeHandle<'h>
     /// # Safety
     ///
     /// The handle must point to an object.
+    #[inline]
     pub unsafe fn payload(self) -> *mut Payload
     {
         &mut (*self.as_ptr()).payload
@@ -66,6 +71,7 @@ impl<'h> UnsafeHandle<'h>
 
 impl<'h> PartialEq for UnsafeHandle<'h>
 {
+    #[inline]
     fn eq(&self, other: &Self) -> bool
     {
         self.pointer == other.pointer
@@ -95,12 +101,14 @@ pub struct PinnedHandle<'h, 'p>
 impl<'h, 'p> PinnedHandle<'h, 'p>
 {
     /// Convert the pinned handle to the underlying handle.
+    #[inline]
     pub fn as_unsafe_handle(self) -> UnsafeHandle<'h>
     {
         self.handle
     }
 
     /// Get the header of the object referenced by this handle.
+    #[inline]
     pub fn header(self) -> Header
     {
         // SAFETY: The handle refers to an object, as it is pinned.
@@ -108,6 +116,7 @@ impl<'h, 'p> PinnedHandle<'h, 'p>
     }
 
     /// Get the payload of the object referenced by this handle.
+    #[inline]
     pub fn payload(self) -> *mut Payload
     {
         // SAFETY: The handle refers to an object, as it is pinned.
@@ -136,6 +145,7 @@ impl<'h, 's> ScopedHandle<'h, 's>
     /// # Safety
     ///
     /// The underlying handle must be part of a scope.
+    #[inline]
     pub unsafe fn new(handle: &'s Cell<UnsafeHandle<'h>>) -> Self
     {
         Self{handle}
@@ -145,18 +155,21 @@ impl<'h, 's> ScopedHandle<'h, 's>
     ///
     /// This may return a different handle than previous time,
     /// as the garbage collector rewrites handles after relocating objects.
+    #[inline]
     pub fn as_unsafe_handle(self) -> UnsafeHandle<'h>
     {
         self.handle.get()
     }
 
     /// Modify this handle to refer to the same object as the other handle.
+    #[inline]
     pub fn copy_from(self, other: ScopedHandle<'h, 's>)
     {
         self.handle.set(other.as_unsafe_handle());
     }
 
     /// Modify this handle to refer to the same object as the other handle.
+    #[inline]
     pub unsafe fn copy_from_unsafe_handle(self, other: UnsafeHandle<'h>)
     {
         self.handle.set(other);
@@ -173,20 +186,28 @@ impl<'h, 's> ScopedHandle<'h, 's>
             _pin_frame: PhantomData,
             handle: self.as_unsafe_handle(),
         };
+
         unsafe {
             let header = self.as_unsafe_handle().header();
             let flags: *mut Flags = &mut (*header).flags;
-            if (*flags).contains(Flags::PINNED) {
-                then(pinned_handle)
-            } else {
+            let already_pinned = (*flags).contains(Flags::PINNED);
+
+            if !already_pinned {
                 (*flags).insert(Flags::PINNED);
-                defer! { (*flags).remove(Flags::PINNED); }
-                then(pinned_handle)
             }
+
+            defer! {
+                if !already_pinned {
+                    (*flags).remove(Flags::PINNED);
+                }
+            }
+
+            then(pinned_handle)
         }
     }
 
     /// Get the header of the object referenced by this handle.
+    #[inline]
     pub fn header(self) -> Header
     {
         // SAFETY: The handle refers to an object, as it is scoped.

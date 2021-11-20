@@ -46,6 +46,7 @@ impl FreeCache
     /// If the variable is already in the set, the set is returned unchanged.
     /// If the variable has a De Bruijn index larger than 15,
     /// the free variables cache in the “unknown” state is returned.
+    #[inline]
     #[must_use = "insert returns a new free variables cache"]
     pub fn insert(self, de_bruijn: DeBruijn) -> Self
     {
@@ -62,6 +63,7 @@ impl FreeCache
     /// this method returns [`None`].
     /// Otherwise this function returns true or false
     /// depending on whether the variable is in the cache.
+    #[inline]
     pub fn contains(self, de_bruijn: DeBruijn) -> Option<bool>
     {
         if self.bits == Self::UNKNOWN.bits {
@@ -79,6 +81,7 @@ impl ops::BitOr for FreeCache
 {
     type Output = FreeCache;
 
+    #[inline]
     fn bitor(self, rhs: FreeCache) -> Self::Output
     {
         Self{bits: self.bits | rhs.bits}
@@ -88,6 +91,7 @@ impl ops::BitOr for FreeCache
 /// The union of two free variables caches.
 impl ops::BitOrAssign for FreeCache
 {
+    #[inline]
     fn bitor_assign(&mut self, rhs: FreeCache)
     {
         *self = *self | rhs;

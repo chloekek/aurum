@@ -17,6 +17,7 @@ pub struct SymbolLenError;
 impl<'h> Heap<'h>
 {
     /// Create a symbol with the given name.
+    #[inline]
     pub fn new_symbol<'s>(&self, into: ScopedHandle<'h, 's>, name: &[u8])
         -> Result<(), SymbolLenError>
     {
@@ -60,6 +61,7 @@ impl<'h, 'p> PinnedHandle<'h, 'p>
     /// Get the name of the symbol object.
     ///
     /// If the object is not a symbol, this method returns [`None`].
+    #[inline]
     pub fn as_symbol(self) -> Option<&'p [u8]>
     {
         let header = self.header();

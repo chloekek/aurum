@@ -35,6 +35,7 @@ fn payload_size(num_arguments: usize) -> Result<u32, NumArgumentsError>
 impl<'h> Heap<'h>
 {
     /// Create an application with the given function and arguments.
+    #[inline]
     pub fn new_application<'s, I>(
         &self,
         into: ScopedHandle<'h, 's>,
@@ -85,6 +86,7 @@ impl<'h, 'p> PinnedHandle<'h, 'p>
     /// Get the function and the arguments of the application object.
     ///
     /// If the object is not an application, this method returns [`None`].
+    #[inline]
     pub fn as_application(self) -> Option<(ScopedHandle<'h, 'p>, &'p Scope<'h>)>
     {
         let header = self.header();

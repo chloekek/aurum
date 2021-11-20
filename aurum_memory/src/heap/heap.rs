@@ -85,6 +85,7 @@ impl<'h> Heap<'h>
     ///
     /// This handle is used to initialize new scopes;
     /// every scope starts out with all Null handles.
+    #[inline]
     pub fn interned_null(&self) -> UnsafeHandle<'h>
     {
         self.interned_null.get()
@@ -94,6 +95,7 @@ impl<'h> Heap<'h>
     ///
     /// The [`new_variable`][`Heap::new_variable`]
     /// method automatically consults this array.
+    #[inline]
     pub fn interned_variable(&self, de_bruijn: DeBruijn)
         -> Option<UnsafeHandle<'h>>
     {

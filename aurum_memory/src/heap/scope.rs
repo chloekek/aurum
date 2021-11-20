@@ -128,6 +128,7 @@ impl<'h> Scope<'h>
     ///
     /// The objects referred to by the handles must not be destroyed
     /// for the entire lifetime of the scope.
+    #[inline]
     pub unsafe fn new<'s>(handles: &'s [Cell<UnsafeHandle<'h>>]) -> &'s Self
     {
         // SAFETY: These types have the same representation.
@@ -137,6 +138,7 @@ impl<'h> Scope<'h>
     /// Retrieve the handle at the given index.
     ///
     /// If the index is out of bounds, this method returns [`None`].
+    #[inline]
     pub fn get<'s>(&'s self, index: usize) -> Option<ScopedHandle<'h, 's>>
     {
         match self.handles.get(index) {
@@ -151,6 +153,7 @@ impl<'h> Scope<'h>
     /// # Safety
     ///
     /// If the index is out of bounds, the behavior is undefined.
+    #[inline]
     pub unsafe fn get_unchecked<'s>(&'s self, index: usize)
         -> ScopedHandle<'h, 's>
     {
@@ -160,6 +163,7 @@ impl<'h> Scope<'h>
     }
 
     /// Iterator over the handles in this scope.
+    #[inline]
     pub fn iter<'s>(&'s self)
         -> impl Iterator<Item=ScopedHandle<'h, 's>>
                 + ExactSizeIterator
