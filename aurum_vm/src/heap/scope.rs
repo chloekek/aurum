@@ -4,6 +4,7 @@ use super::handle::UnsafeHandle;
 
 use alloc::vec;
 use core::cell::Cell;
+use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
 use core::mem::transmute;
 use scopeguard::defer;
@@ -22,8 +23,7 @@ impl<'h> Heap<'h>
         defer! { unsafe { self.scopes.borrow_mut() }.pop(); }
 
         // SAFETY: The scope is registerd with the heap.
-        // SAFETY: These types have the same representation.
-        let scope = unsafe { transmute(scope) };
+        let scope = unsafe { Scope::new(scope) };
 
         then(scope)
     }
@@ -90,14 +90,20 @@ impl<'h> Heap<'h>
     }
 }
 
-/// Collection of handles that are treated as roots.
+/// Collection of handles to objects that will not be destroyed.
 ///
-/// The only way to obtain a scope is by calling
-/// one of the `with_new_*_scope` methods on [`Heap`].
+/// The `with_new_*_scope` methods on [`Heap`] create scopes on the call stack.
 /// These methods will automatically register the scope with the heap,
 /// and unregister it when it is no longer to be used.
 /// This ensures that the garbage collector is aware of all scopes,
 /// and that handles in a scope always point to existing objects.
+///
+/// Scopes can also be borrowed from pinned objects
+/// that contain handles to other objects.
+/// The parent object being pinned ensures that
+/// the objects it points to won’t be destroyed.
+/// An example of this is pinned application objects:
+/// you can safely [borrow] their list of argument handles.
 ///
 /// Objects referenced by any scope are not destroyed by the garbage collector.
 /// Moreover, when the garbage collector relocates objects in memory,
@@ -107,6 +113,7 @@ impl<'h> Heap<'h>
 /// The [`ScopedHandle`] type encapsulates this.
 ///
 /// [`Heap`]: `super::Heap`
+/// [borrow]: `super::PinnedHandle::as_application`
 #[repr(transparent)]
 pub struct Scope<'h>
 {
@@ -115,6 +122,18 @@ pub struct Scope<'h>
 
 impl<'h> Scope<'h>
 {
+    /// Create a scope from a collection of handles.
+    ///
+    /// # Safety
+    ///
+    /// The objects referred to by the handles must not be destroyed
+    /// for the entire lifetime of the scope.
+    pub unsafe fn new<'s>(handles: &'s [Cell<UnsafeHandle<'h>>]) -> &'s Self
+    {
+        // SAFETY: These types have the same representation.
+        transmute(handles)
+    }
+
     /// Retrieve the handle at the given index.
     ///
     /// If the index is out of bounds, this method returns [`None`].
@@ -139,4 +158,14 @@ impl<'h> Scope<'h>
         // SAFETY: The handle is part of this scope.
         ScopedHandle::new(handle)
     }
- }
+
+    /// Iterator over the handles in this scope.
+    pub fn iter<'s>(&'s self)
+        -> impl Iterator<Item=ScopedHandle<'h, 's>>
+                + ExactSizeIterator
+                + TrustedLen
+    {
+        // SAFETY: The handle is part of this scope.
+        self.handles.iter().map(|h| unsafe { ScopedHandle::new(h) })
+    }
+}

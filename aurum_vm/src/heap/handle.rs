@@ -15,7 +15,7 @@ use scopeguard::defer;
 /// The garbage collector may destroy or relocate objects,
 /// which impacts the validity of existing unsafe handles.
 #[repr(transparent)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct UnsafeHandle<'h>
 {
     pointer: NonNull<Object<'h>>,
@@ -62,6 +62,18 @@ impl<'h> UnsafeHandle<'h>
     {
         &mut (*self.as_ptr()).payload
     }
+}
+
+impl<'h> PartialEq for UnsafeHandle<'h>
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        self.pointer == other.pointer
+    }
+}
+
+impl<'h> Eq for UnsafeHandle<'h>
+{
 }
 
 /// Pointer to an object whose [`PINNED`] flag is set.
@@ -124,7 +136,7 @@ impl<'h, 's> ScopedHandle<'h, 's>
     /// # Safety
     ///
     /// The underlying handle must be part of a scope.
-    pub (super) unsafe fn new(handle: &'s Cell<UnsafeHandle<'h>>) -> Self
+    pub unsafe fn new(handle: &'s Cell<UnsafeHandle<'h>>) -> Self
     {
         Self{handle}
     }
